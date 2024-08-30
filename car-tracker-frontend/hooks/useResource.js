@@ -1,18 +1,39 @@
 // hooks/useResource.js
-import useSWR from 'swr';
-import axios from 'axios';
+import useSWR, { mutate } from 'swr';
 
-// Example API URL and fetcher function
-const API_URL = 'https://api.api-ninjas.com/v1/cars';
-const fetcher = url => axios.get(url, { headers: { 'X-Api-Key': 'YOUR_API_KEY' } }).then(res => res.data);
+const fetcher = (url) => fetch(url).then((res) => res.json());
+const fetcherWithMethod = (url, method, data) =>
+  fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  }).then((res) => res.json());
 
-export function useResource(model = '', limit = 2) {
-  const url = `${API_URL}?limit=${limit}&model=${model}`;
-  const { data: cars, error, mutate } = useSWR(url, fetcher);
+export function useResource(apiUrl) {
+  const { data, error, mutate: swrMutate } = useSWR(apiUrl, fetcher);
+
+  const create = async (newResource) => {
+    await fetcherWithMethod(apiUrl, 'POST', newResource);
+    swrMutate(); // Refresh data
+  };
+
+  const update = async (id, updatedResource) => {
+    await fetcherWithMethod(`${apiUrl}/${id}/`, 'PUT', updatedResource);
+    swrMutate(); // Refresh data
+  };
+
+  const deleteResource = async (id) => {
+    await fetch(`${apiUrl}/${id}/`, { method: 'DELETE' });
+    swrMutate(); // Refresh data
+  };
 
   return {
-    cars,
-    isLoading: !error && !cars,
-    isError: error,
+    data,
+    error,
+    create,
+    update,
+    delete: deleteResource,
   };
 }
